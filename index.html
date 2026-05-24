@@ -5,12 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>올바른 성 지식 퀴즈</title>
     <style>
-        /* 깔끔하고 세련된 모바일/웹 겸용 디자인 */
         :root {
             --primary-color: #4f46e5;
             --bg-color: #f8fafc;
             --card-bg: #ffffff;
             --text-color: #1e293b;
+            --correct-color: #10b981;
+            --wrong-color: #ef4444;
         }
 
         body {
@@ -75,15 +76,55 @@
             word-break: keep-all;
         }
 
-        .option-btn:hover {
+        .option-btn:hover:not([disabled]) {
             background-color: #e2e8f0;
         }
 
-        .option-btn.selected {
-            background-color: #eef2ff;
-            border-color: var(--primary-color);
-            color: var(--primary-color);
+        /* 정답 및 오답 시각 피드백 */
+        .option-btn.correct {
+            background-color: #ecfdf5;
+            border-color: var(--correct-color);
+            color: var(--correct-color);
             font-weight: 600;
+        }
+
+        .option-btn.wrong {
+            background-color: #fef2f2;
+            border-color: var(--wrong-color);
+            color: var(--wrong-color);
+            font-weight: 600;
+        }
+
+        /* 실시간 피드백 박스 */
+        .feedback-box {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 10px;
+            display: none;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .feedback-box.correct-style {
+            background-color: #e6f4ea;
+            border-left: 5px solid var(--correct-color);
+        }
+
+        .feedback-box.wrong-style {
+            background-color: #fce8e6;
+            border-left: 5px solid var(--wrong-color);
+        }
+
+        .feedback-title {
+            font-weight: 700;
+            margin-bottom: 5px;
+            font-size: 1.05rem;
+        }
+
+        .feedback-explanation {
+            font-size: 0.95rem;
+            line-height: 1.5;
+            color: #475569;
+            word-break: keep-all;
         }
 
         .next-btn {
@@ -120,7 +161,7 @@
             margin: 0 auto 20px;
         }
 
-        .feedback-text {
+        .result-msg {
             font-size: 1.1rem;
             line-height: 1.6;
             margin-bottom: 20px;
@@ -137,87 +178,104 @@
             font-size: 1rem;
             cursor: pointer;
         }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
     </style>
 </head>
 <body>
 
     <div class="quiz-container">
+        <!-- 퀴즈 진행 화면 -->
         <div id="quiz-screen">
             <div class="progress-bar"><div class="progress" id="progress"></div></div>
             <div id="question-number" style="font-size: 0.9rem; color: #64748b; font-weight: 600; margin-bottom: 8px;"></div>
             <h2 id="question-text">질문 텍스트가 들어가는 곳입니다.</h2>
             <div class="options-container" id="options-container"></div>
+            
+            <!-- 실시간 정오답 및 바른지식 노출 영역 -->
+            <div id="feedback-box" class="feedback-box">
+                <div id="feedback-title" class="feedback-title"></div>
+                <div id="feedback-explanation" class="feedback-explanation"></div>
+            </div>
+
             <button class="next-btn" id="next-btn" onclick="nextQuestion()">다음 문제</button>
         </div>
 
+        <!-- 최종 결과 화면 -->
         <div id="result-screen" class="result-container">
             <h1 style="font-size: 1.8rem; margin-bottom: 10px;">퀴즈 결과</h1>
             <div class="score-circle" id="score-text">0점</div>
             <p id="match-count" style="font-weight: 600; margin-bottom: 10px;"></p>
-            <p class="feedback-text" id="feedback-text"></p>
+            <p class="result-msg" id="result-msg"></p>
             <button class="restart-btn" onclick="restartQuiz()">다시 풀기</button>
         </div>
     </div>
 
     <script>
-        // 보낸 퀴즈 데이터를 웹용 데이터셋으로 적용
         const quizData = [
             {
                 question: "콘돔을 지갑 속에 보관하면 돈을 많이 벌 수 있다는 말이 있다. 지갑 속에 넣고 다닌 콘돔, 사용해도 괜찮을까?",
                 options: ["O (괜찮다)", "X (안 된다)"],
-                correct: 1
+                correct: 1,
+                explanation: "주머니나 지갑 속은 체온에 의한 열기와 마찰이 잦아 콘돔의 라텍스 재질을 손상시킬 우려가 있습니다. 따라서 전용 파우처나 서늘한 곳에 보관할 필요가 있습니다!"
             },
             {
                 question: "콘돔 사용 시 피임 실패율을 높이는 ‘가장 위험한 보관 장소’는?",
                 options: ["침대 옆 서랍", "가방 안쪽 지퍼 포켓", "청바지 뒷주머니 혹은 지갑 속", "햇빛이 들지 않는 서늘한 상자"],
-                correct: 2
+                correct: 2,
+                explanation: "마찰과 체온, 압력이 지속적으로 가해지는 청바지 주머니나 지갑 속은 콘돔 보관에 가장 취약한 장소입니다."
             },
             {
                 question: "콘돔을 착용할 때 반드시 지켜야 할 매너 및 안전 수칙으로 옳은 것은?",
                 options: ["확실한 피임을 위해 콘돔 두 개를 겹쳐 사용한다.", "유통기한에 개의치않고 외관상 문제가 없다면 사용한다.", "콘돔의 끝부분을 살며시 눌러 공기가 빠져나가게 한다.", "착용이 뻑뻑할 경우 바세린이나 베이비 오일을 바른다."],
-                correct: 2
+                correct: 2,
+                explanation: "콘돔의 끝부분(정액받이)에 공기가 차 있으면 압력에 의해 터질 우려가 있으므로 공기를 빼고 사용해야 합니다. 콘돔을 두 개 이상 착용할 경우 마찰로 의해 찢어질 우려가 있습니다. 또한 바세린이나 오일류 등의 지용성 오일류는 라텍스를 녹일 수 있으므로 절대 같이 사용해선 안 됩니다!"
             },
             {
                 question: "관계 후 외음부를 세정할 때 가장 권장되는 올바른 방법은?",
                 options: ["강한 수압의 샤워기로 질 내부까지 깊숙이 헹군다.", "일반 알칼리성 비누로 거품을 많이 내어 씻는다.", "세균 박멸을 위해 뜨거운 물로 오래 소독하듯 씻는다.", "미온수나 전용 약산성 청결제로 겉부분만 가볍게 씻는다."],
-                correct: 3
+                correct: 3,
+                explanation: "과도한 세정은 유익균까지 죽여 질염을 유발할 수 있습니다. 겉부분 위주로 부드럽게 세정하는 것이 핵심!"
             },
             {
                 question: "콘돔의 일반적인 사용 시 피임률은?",
                 options: ["98% 이상", "90~95%", "82~85%", "80% 이하"],
-                correct: 2
+                correct: 2,
+                explanation: "콘돔은 올바르게 사용할 경우 약 98% 정도의 피임률을 보여주지만, 사용자의 숙련도(착용 미숙, 사이즈 미스, 찢어짐 등)에 따라 실패율이 약 15~18%까지 올라갑니다. 때문에 확실한 피임을 위해서는 콘돔과 함께 피임약 등을 복용하는 이중 피임법이 가장 권장됩니다."
             },
             {
                 question: "성병(성매개감염병)에 대한 상식 중 옳지 않은 것은?",
                 options: ["증상이 없어도 성병에 감염된 상태일 수 있다.", "구강성교를 통해서도 성병(임질, 매독 등)이 전염될 수 있다.", "콘돔을 완벽하게 착용한다면 사타구니 주변을 포함해 생기는 모든 성병을 막을 수 있다.", "정기적인 성병 검사는 파트너에 대한 중요한 매너이다."],
-                correct: 2
+                correct: 2,
+                explanation: "콘돔은 훌륭한 방패이지만, 콘돔이 가리지 못하는 피부 접촉 부위를 통해 전염되는 성기 사마귀(곤지름)나 사포상포진 등은 100% 차단하기 어렵습니다."
             },
             {
                 question: "생리 기간 중 성관계(생리 중 관계)에 대한 설명으로 옳은 것은?",
                 options: ["생리 중에는 배란이 되지 않으므로 100% 임신이 불가능하다.", "생리 혈이 천연 윤활제 역할을 하므로 질염 예방에 도움이 된다.", "생리 중에도 임신 가능성이 존재하며, 세균 감염 위험이 평소보다 훨씬 높다.", "생리 중에는 자궁 경부가 닫히므로 외부 균이 들어올 수 없다."],
-                correct: 3
+                correct: 3,
+                explanation: "정자의 생존 기간과 불규칙한 배란 주기가 겹치면 임신이 가능합니다. 또한, 생리 중에는 자궁 내막이 탈락하며 자궁 경부가 열려 있고 질 내 산도가 변해 세균 감염(질염, 골반염 등)에 매우 취약해집니다."
             }
         ];
 
         let currentIdx = 0;
         let score = 0;
-        let selectedAnswer = null;
+        let hasAnswered = false;
 
         function loadQuestion() {
-            selectedAnswer = null;
+            hasAnswered = false;
             document.getElementById('next-btn').style.display = 'none';
+            document.getElementById('feedback-box').style.display = 'none';
             
             const currentQuiz = quizData[currentIdx];
             
-            // 상단 진행 바 & 문제 번호 업데이트
-            const progressPercent = ((currentIdx) / quizData.length) * 100;
+            const progressPercent = (currentIdx / quizData.length) * 100;
             document.getElementById('progress').style.width = `${progressPercent}%`;
             document.getElementById('question-number').innerText = `문제 ${currentIdx + 1} / ${quizData.length}`;
-            
-            // 문제 텍스트 적용
             document.getElementById('question-text').innerText = currentQuiz.question;
             
-            // 보기 생성
             const optionsContainer = document.getElementById('options-container');
             optionsContainer.innerHTML = '';
             
@@ -225,32 +283,51 @@
                 const button = document.createElement('button');
                 button.classList.add('option-btn');
                 button.innerText = option;
-                button.onclick = () => selectOption(index, button);
+                button.onclick = () => checkAnswer(index, button);
                 optionsContainer.appendChild(button);
             });
         }
 
-        function selectOption(index, button) {
-            // 이전에 선택된 버튼 효과 해제
+        function checkAnswer(selectedIndex, clickedButton) {
+            if (hasAnswered) return; // 이미 대답했다면 중복 클릭 방지
+            hasAnswered = true;
+
+            const currentQuiz = quizData[currentIdx];
             const buttons = document.querySelectorAll('.option-btn');
-            buttons.forEach(btn => btn.classList.remove('selected'));
             
-            // 현재 버튼 선택 효과 및 데이터 저장
-            button.classList.add('selected');
-            selectedAnswer = index;
+            // 모든 버튼 비활성화
+            buttons.forEach(btn => btn.setAttribute('disabled', 'true'));
+
+            const feedbackBox = document.getElementById('feedback-box');
+            const feedbackTitle = document.getElementById('feedback-title');
+            const feedbackExplanation = document.getElementById('feedback-explanation');
+
+            feedbackBox.className = 'feedback-box'; // 클래스 초기화
+
+            if (selectedIndex === currentQuiz.correct) {
+                // 정답일 때
+                clickedButton.classList.add('correct');
+                feedbackTitle.innerText = "⭕ 정답입니다!";
+                feedbackBox.classList.add('correct-style');
+                score++;
+            } else {
+                // 오답일 때
+                clickedButton.classList.add('wrong');
+                buttons[currentQuiz.correct].classList.add('correct'); // 정답인 버튼도 같이 알려줌
+                feedbackTitle.innerText = "❌ 틀렸습니다!";
+                feedbackBox.classList.add('wrong-style');
+            }
+
+            // 바른지식 해설 채워넣고 보여주기
+            feedbackExplanation.innerText = currentQuiz.explanation;
+            feedbackBox.style.display = 'block';
             
-            // 다음 버튼 활성화
+            // 다음 문제 버튼 등장
             document.getElementById('next-btn').style.display = 'block';
         }
 
         function nextQuestion() {
-            // 정답 체크 (인덱스는 0부터 시작하므로 맞으면 score 증가)
-            if (selectedAnswer === quizData[currentIdx].correct) {
-                score++;
-            }
-            
             currentIdx++;
-            
             if (currentIdx < quizData.length) {
                 loadQuestion();
             } else {
@@ -274,7 +351,7 @@
             } else {
                 feedback = "안전과 건강한 관계를 위해 피임 및 성 지식을 다시 한번 체크해 보는 것을 추천합니다! 🩺";
             }
-            document.getElementById('feedback-text').innerText = feedback;
+            document.getElementById('result-msg').innerText = feedback;
         }
 
         function restartQuiz() {
@@ -285,7 +362,6 @@
             loadQuestion();
         }
 
-        // 첫 실행
         loadQuestion();
     </script>
 </body>
